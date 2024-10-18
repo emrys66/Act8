@@ -1,9 +1,9 @@
-- hosts: servers
+- hosts: ubuntu
   become: true
   roles:
     - ubuntu
 
-- hosts: server_centOS
+- hosts: centos
   become: true
   roles:
     - centos
