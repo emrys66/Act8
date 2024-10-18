@@ -1,9 +1,63 @@
-- name: Install Nagios Core
+- name: Install dependencies for Nagios on Ubuntu
   apt:
-    name: nagios3
+    name:
+      - apache2
+      - php
+      - libapache2-mod-php
+      - wget
     state: present
 
-- name: Install Nagios Plugins
-  apt:
-    name: nagios-plugins
-    state: present
+- name: Download Nagios tarball
+  get_url:
+    url: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.4.6.tar.gz
+    dest: /tmp/nagios.tar.gz
+
+- name: Extract Nagios tarball
+  unarchive:
+    src: /tmp/nagios.tar.gz
+    dest: /opt/
+    remote_src: yes
+
+- name: Configure Nagios
+  command: ./configure --with-httpd-conf=/etc/apache2/sites-enabled/
+  args:
+    chdir: /opt/nagios-4.4.6
+
+- name: Build Nagios
+  command: make all
+  args:
+    chdir: /opt/nagios-4.4.6
+
+- name: Install Nagios
+  command: make install
+  args:
+    chdir: /opt/nagios-4.4.6
+
+- name: Install Nagios init scripts
+  command: make install-init
+  args:
+    chdir: /opt/nagios-4.4.6
+
+- name: Install Nagios config
+  command: make install-config
+  args:
+    chdir: /opt/nagios-4.4.6
+
+- name: Install Nagios command mode
+  command: make install-commandmode
+  args:
+    chdir: /opt/nagios-4.4.6
+
+- name: Install Nagios web configuration
+  command: make install-webconf
+  args:
+    chdir: /opt/nagios-4.4.6
+
+- name: Configure Nagios Admin User
+  command: htpasswd -b -c /usr/local/nagios/etc/htpasswd.users nagiosadmin password
+
+- name: Enable and Start Apache
+  systemd:
+    name: apache2
+    enabled: yes
+    state: started
