@@ -3,7 +3,7 @@
   roles:
     - ubuntu
 
-- hosts: centos
+- hosts: server_centos
   become: true
   roles:
     - centos
