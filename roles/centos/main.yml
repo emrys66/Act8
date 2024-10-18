@@ -1,101 +1,63 @@
----
-- name: Install Nagios 3 on CentOS
-  hosts: centos_servers
-  become: yes
-  tasks:
-    - name: Update system packages
-      dnf:
-        name: '*'
-        state: latest
+- name: Install dependencies for Nagios on CentOS
+  yum:
+    name:
+      - httpd
+      - php
+      - wget
+      - gcc
+    state: present
 
-    - name: Install required packages
-      dnf:
-        name:
-          - gcc
-          - glibc
-          - glibc-common
-          - perl
-          - wget
-          - unzip
-          - httpd
-          - php
-          - gcc-c++
-          - make
-          - autoconf
-          - automake
-          - php-cli
-          - php-gd
-          - php-mbstring
-          - php-mysqlnd
-          - php-xml
-          - httpd-tools
-        state: present
+- name: Download Nagios tarball
+  get_url:
+    url: https://assets.nagios.com/downloads/nagioscore/releases/nagios-4.4.6.tar.gz
+    dest: /tmp/nagios.tar.gz
 
-    - name: Create Nagios user and group
-      user:
-        name: nagios
-        shell: /sbin/nologin
-        system: yes
+- name: Extract Nagios tarball
+  unarchive:
+    src: /tmp/nagios.tar.gz
+    dest: /opt/
+    remote_src: yes
 
-    - name: Add Nagios user to Apache group
-      user:
-        name: nagios
-        groups: apache
-        append: yes
+- name: Configure Nagios
+  command: ./configure --with-httpd-conf=/etc/httpd/conf.d/
+  args:
+    chdir: /opt/nagios-4.4.6
 
-    - name: Download Nagios 3
-      get_url:
-        url: https://github.com/NagiosEnterprises/nagioscore/archive/refs/tags/3.5.1.tar.gz
-        dest: /tmp/nagios.tar.gz
+- name: Build Nagios
+  command: make all
+  args:
+    chdir: /opt/nagios-4.4.6
 
-    - name: Extract Nagios
-      unarchive:
-        src: /tmp/nagios.tar.gz
-        dest: /tmp/
-        remote_src: yes
+- name: Install Nagios
+  command: make install
+  args:
+    chdir: /opt/nagios-4.4.6
 
-    - name: Compile and install Nagios
-      command: >
-        /bin/bash -c "cd /tmp/nagioscore-3.5.1 && ./configure --with-command-group=nagios && make all && make install && make install-init && make install-config && make install-commandmode"
-      args:
-        chdir: /tmp/nagioscore-3.5.1
+- name: Install Nagios init scripts
+  command: make install-init
+  args:
+    chdir: /opt/nagios-4.4.6
 
-    - name: Download Nagios Plugins
-      get_url:
-        url: https://github.com/NagiosEnterprises/nagios-plugins/archive/refs/tags/release-1.4.16.tar.gz
-        dest: /tmp/nagios-plugins.tar.gz
+- name: Install Nagios config
+  command: make install-config
+  args:
+    chdir: /opt/nagios-4.4.6
 
-    - name: Extract Nagios Plugins
-      unarchive:
-        src: /tmp/nagios-plugins.tar.gz
-        dest: /tmp/
-        remote_src: yes
+- name: Install Nagios command mode
+  command: make install-commandmode
+  args:
+    chdir: /opt/nagios-4.4.6
 
-    - name: Compile and install Nagios Plugins
-      command: >
-        /bin/bash -c "cd /tmp/nagios-plugins-release-1.4.16 && ./configure --with-nagios-user=nagios --with-nagios-group=nagios && make && make install"
-      args:
-        chdir: /tmp/nagios-plugins-release-1.4.16
+- name: Install Nagios web configuration
+  command: make install-webconf
+  args:
+    chdir: /opt/nagios-4.4.6
 
-    - name: Configure Nagios
-      lineinfile:
-        path: /usr/local/nagios/etc/nagios.cfg
-        regexp: '^admin_email'
-        line: 'admin_email=nagios@localhost'
+- name: Configure Nagios Admin User
+  command: htpasswd -b -c /usr/local/nagios/etc/htpasswd.users nagiosadmin password
 
-    - name: Add Nagios admin user
-      command: htpasswd -c /usr/local/nagios/etc/htpasswd.users nagiosadmin
-      args:
-        stdin: 'your_password_here'
-
-    - name: Start and enable Nagios service
-      systemd:
-        name: nagios
-        state: started
-        enabled: yes
-
-    - name: Start and enable Apache service
-      systemd:
-        name: httpd
-        state: started
-        enabled: yes
+- name: Enable and Start Apache
+  systemd:
+    name: httpd
+    enabled: yes
+    state: started
