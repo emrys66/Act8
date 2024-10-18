@@ -1,2 +1,9 @@
-test
+- name: Install Nagios Core
+  dnf:
+    name: nagios
+    state: present
 
+- name: Install Nagios Plugins
+  dnf:
+    name: nagios-plugins-all
+    state: present
